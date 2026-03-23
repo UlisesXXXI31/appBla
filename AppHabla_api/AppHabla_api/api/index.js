@@ -144,7 +144,7 @@ app.post('/api/practica/finalizar', async (req, res) => {
 /**
  * Endpoint 3: Genera un informe resumido del progreso de un alumno.
  */
-app.get('/api/profesor/progreso/:alumnoId', async (req, res) => {
+app.get('/profesor/progreso/:alumnoId', async (req, res) => {
     try {
         const alumnoId = req.params.alumnoId;
         
