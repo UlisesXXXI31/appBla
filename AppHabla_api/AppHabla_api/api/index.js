@@ -1,7 +1,6 @@
 import 'dotenv/config'; 
 import express from 'express';
 import mongoose from 'mongoose';
-import { GoogleGenAI } from '@google/genai';
 import SesionPractica from '../models/SesionPractica.js'; // Ajustado si index.js está en /api
 import cors from 'cors';
 import { GoogleGenAI } from '@google/generative-ai';
