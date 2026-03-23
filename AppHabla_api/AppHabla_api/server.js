@@ -187,9 +187,13 @@ app.get('/api/profesor/progreso/:alumnoId', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor de backend ejecutándose en http://localhost:${PORT}`);
-});
+//Solo levantar el servidor si NO estamos en Vercel
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+        console.log(`🚀 Servidor local en http://localhost:${PORT}`);
+    });
+}
 
+// Vercel necesita el export default de la instancia de express
 export default app;
