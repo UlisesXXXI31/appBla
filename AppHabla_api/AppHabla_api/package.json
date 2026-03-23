@@ -1,23 +1,13 @@
 {
-  "name": "apphabla_api",
+  "name": "app-habla-api",
   "version": "1.0.0",
-  "description": "Backend for German practice app",
-  "main": "server.js",
   "type": "module",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "keywords": [
-    "gemini",
-    "nodejs",
-    "mongodb"
-  ],
-  "author": "",
-  "license": "ISC",
+  "main": "api/index.js",
   "dependencies": {
     "@google/generative-ai": "^0.3.1",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "mongoose": "^8.23.0"
+    "mongoose": "^8.2.2"
   }
 }
