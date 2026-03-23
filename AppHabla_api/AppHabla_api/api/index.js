@@ -5,8 +5,8 @@ import express from 'express';
 import mongoose from 'mongoose';
 import { GoogleGenAI } from '@google/genai';
 // Importa el modelo (¡Necesita la extensión .js!)
-import SesionPractica from './models/SesionPractica.js'; 
-mport cors from 'cors';
+import SesionPractica from '../models/SesionPractica.js'; 
+import cors from 'cors';
 
 const app = express();
 app.use(cors()); // Esto permite que cualquier origen (tu frontend) llame a tu API
@@ -40,7 +40,7 @@ const model = "gemini-2.5-flash";
 /**
  * Endpoint 1: Maneja cada turno de conversación con Gemini, registra la interacción.
  */
-app.post('/api/practica/hablar', async (req, res) => {
+app.post('/practica/hablar', async (req, res) => {
     const { alumnoId, sesionId, inputAlumno, tema } = req.body;
     
     if (!alumnoId || !inputAlumno) {
@@ -116,7 +116,7 @@ app.post('/api/practica/hablar', async (req, res) => {
 /**
  * Endpoint 2: Marca una sesión como terminada.
  */
-app.post('/api/practica/finalizar', async (req, res) => {
+app.post('/practica/finalizar', async (req, res) => {
     const { sesionId } = req.body;
 
     try {
