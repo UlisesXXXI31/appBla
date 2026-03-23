@@ -3,7 +3,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import SesionPractica from '../models/SesionPractica.js'; // Ajustado si index.js está en /api
 import cors from 'cors';
-import { GoogleGenAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const app = express();
 
@@ -28,7 +28,7 @@ mongoose.connect(process.env.MONGODB_URI)
     });
 
 // --- Inicialización de Gemini ---
-const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // --- Endpoints ---
