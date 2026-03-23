@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { GoogleGenAI } from '@google/genai';
 import SesionPractica from '../models/SesionPractica.js'; // Ajustado si index.js está en /api
 import cors from 'cors';
+import { GoogleGenAI } from '@google/generative-ai';
 
 const app = express();
 
@@ -28,46 +29,96 @@ mongoose.connect(process.env.MONGODB_URI)
     });
 
 // --- Inicialización de Gemini ---
-const ai = new GoogleGenAI(process.env.GEMINI_API_KEY);
-const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" }); // Nota: gemini-1.5-flash es el estándar actual
+const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // --- Endpoints ---
 
 // Endpoint 1: Hablar
 app.post('/api/practica/hablar', async (req, res) => {
     const { alumnoId, sesionId, inputAlumno, tema } = req.body;
-    if (!alumnoId || !inputAlumno) return res.status(400).send({ error: "Faltan datos." });
+    
+    // Validación de entrada
+    if (!alumnoId || !inputAlumno) {
+        return res.status(400).json({ error: "Faltan datos obligatorios (alumnoId o inputAlumno)." });
+    }
 
     try {
-        let sesion = sesionId ? await SesionPractica.findById(sesionId) : null;
+        // 1. Recuperar o Crear Sesión
+        let sesion;
+        if (sesionId) {
+            sesion = await SesionPractica.findById(sesionId);
+        }
+        
         if (!sesion) {
-            sesion = new SesionPractica({ alumnoId, tema: tema || 'Mi rutina diaria' }); 
+            sesion = new SesionPractica({ 
+                alumnoId, 
+                tema: tema || 'Mi rutina diaria',
+                interacciones: [] 
+            }); 
             await sesion.save();
         }
         
-        const systemPrompt = `Eres profesor de alemán B1. Tema: ${sesion.tema}. Responde al alumno: ${inputAlumno}. Si hay error, añade ---CORRECCION--- seguido de un JSON.`;
+        // 2. Construcción del Prompt (Instrucciones claras para la IA)
+        const prompt = `
+            Eres un profesor de alemán especializado en nivel B1. 
+            El tema de la conversación es: "${sesion.tema}".
+            El alumno dice: "${inputAlumno}".
+            
+            REGLAS:
+            1. Responde de forma natural en alemán para continuar la conversación.
+            2. Si detectas un error gramatical, ortográfico o de vocabulario, añade al final el texto exacto "---CORRECCION---" seguido de un objeto JSON con este formato: {"fraseOriginal": "...", "tipoError": "...", "fraseCorregida": "..."}.
+            3. Si no hay errores, no incluyas la sección de corrección.
+        `;
 
-        const result = await model.generateContent(systemPrompt);
-        const fullText = result.response.text();
+        // 3. Llamada a la API de Gemini (Uso correcto del SDK)
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        const fullText = response.text();
         
+        // 4. Separar la respuesta de la corrección
         let iaRespuesta = fullText;
         let correccionData = null;
         
         if (fullText.includes('---CORRECCION---')) {
             const parts = fullText.split('---CORRECCION---');
             iaRespuesta = parts[0].trim();
-            try { correccionData = JSON.parse(parts[1].trim()); } catch (e) {}
+            
+            try {
+                // Limpiamos posibles etiquetas de Markdown que Gemini suele añadir
+                let jsonString = parts[1].trim().replace(/```json|```/g, "");
+                correccionData = JSON.parse(jsonString);
+            } catch (e) {
+                console.error("Error al parsear el JSON de la IA:", e);
+                // Si falla el parseo, al menos guardamos el texto plano o lo dejamos nulo
+            }
         }
         
-        sesion.interacciones.push({ alumnoInput: inputAlumno, iaRespuesta, correccion: correccionData });
+        // 5. Registrar la interacción en MongoDB
+        // Asegúrate de que los nombres de los campos coincidan con tu Modelo
+        sesion.interacciones.push({ 
+            alumnoInput: inputAlumno, 
+            iaRespuesta: iaRespuesta, 
+            correccion: correccionData 
+        });
+        
         await sesion.save();
         
-        res.json({ sesionId: sesion._id, iaRespuesta });
+        // 6. Enviar respuesta al frontend
+        res.json({
+            sesionId: sesion._id,
+            iaRespuesta: iaRespuesta,
+            correccion: correccionData // Opcional: enviarlo para mostrarlo en el front inmediatamente
+        });
+
     } catch (error) {
-        res.status(500).send({ error: error.message });
+        console.error('Error en el endpoint /hablar:', error);
+        res.status(500).json({ 
+            error: 'Fallo interno en el servidor.', 
+            detalles: error.message 
+        });
     }
 });
-
 // Endpoint 2: Finalizar
 app.post('/api/practica/finalizar', async (req, res) => {
     try {
