@@ -6,8 +6,11 @@ import mongoose from 'mongoose';
 import { GoogleGenAI } from '@google/genai';
 // Importa el modelo (¡Necesita la extensión .js!)
 import SesionPractica from './models/SesionPractica.js'; 
+mport cors from 'cors';
 
 const app = express();
+app.use(cors()); // Esto permite que cualquier origen (tu frontend) llame a tu API
+
 app.use(express.json()); 
 
 // --- Configuración Básica ---
