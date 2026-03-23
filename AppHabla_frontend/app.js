@@ -1,7 +1,8 @@
 // app.js
 import { TEMAS_ALEMAN } from './temas.js';
 
-const API_URL = 'http://localhost:3000/api/practica/hablar';
+const BASE_URL = 'https://app-bla.vercel.app'; 
+const API_URL = `${BASE_URL}/api/practica/hablar`;
 let currentSessionId = null;
 const ALUMNO_ID = 'alumno_demo_001'; // Usar un ID de alumno real
 
@@ -124,7 +125,7 @@ statusDisplay.textContent = "Haz clic en el micrófono para empezar a hablar en 
 // Agrega una función para finalizar la sesión cuando el usuario decida terminar.
 document.getElementById('end-session-button').addEventListener('click', async () => {
     if (currentSessionId) {
-        await fetch('http://localhost:3000/api/practica/finalizar', {
+        await fetch('${BASE_URL}/api/practica/finalizar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sesionId: currentSessionId })
