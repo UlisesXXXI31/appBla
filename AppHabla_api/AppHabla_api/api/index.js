@@ -9,42 +9,44 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- LÓGICA DE CONEXIÓN ROBUSTA PARA VERCEL ---
 let isConnected = false;
 
+// Función de conexión mejorada
 const conectarDB = async () => {
-    if (isConnected) return;
-
+    if (mongoose.connection.readyState === 1) {
+        isConnected = true;
+        return;
+    }
     try {
-        // Forzamos la espera de la conexión
-        const db = await mongoose.connect(process.env.MONGODB_URI, {
-            serverSelectionTimeoutMS: 5000, // Falla rápido si no conecta
+        await mongoose.connect(process.env.MONGODB_URI, {
+            serverSelectionTimeoutMS: 5000,
         });
-        isConnected = db.connections[0].readyState === 1;
+        isConnected = true;
         console.log('✅ Conectado a MongoDB');
     } catch (err) {
-        console.error('❌ Error crítico MongoDB:', err.message);
-        throw err;
+        isConnected = false;
+        console.error('❌ Error MongoDB:', err.message);
     }
 };
 
-// --- CONFIGURACIÓN DE GEMINI ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// Usamos gemini-1.5-flash-latest que suele ser el más estable para evitar el 404
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+// Cambiamos a gemini-2.0-flash que es el estándar en marzo de 2026
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-app.get('/', (req, res) => {
-    res.json({ mensaje: "API Activa 🚀", dbStatus: isConnected ? "Conectado" : "Desconectado" });
+// RUTA DE PRUEBA: Ahora intentará conectar para decirte si todo está bien
+app.get('/', async (req, res) => {
+    await conectarDB(); 
+    res.json({ 
+        mensaje: "API Activa 🚀", 
+        dbStatus: isConnected ? "Conectado ✅" : "Desconectado ❌ (Revisa tu MONGODB_URI)" 
+    });
 });
 
 app.post('/api/practica/hablar', async (req, res) => {
     const { alumnoId, sesionId, inputAlumno, tema } = req.body;
-
     try {
-        // 1. Asegurar conexión a DB antes de cualquier operación
         await conectarDB();
-
-        // 2. Buscar o crear sesión
+        
         let sesion;
         if (sesionId) {
             sesion = await SesionPractica.findById(sesionId);
@@ -53,29 +55,15 @@ app.post('/api/practica/hablar', async (req, res) => {
             sesion = new SesionPractica({ alumnoId, tema: tema || 'Mi rutina diaria' });
         }
 
-        const prompt = `Eres profesor de alemán B1. Tema: ${sesion.tema}. Alumno: ${inputAlumno}. Responde y si hay error añade ---CORRECCION--- con JSON.`;
+        const prompt = `Eres profesor de alemán B1. Tema: ${sesion.tema}. Alumno: ${inputAlumno}. Responde de forma natural y añade correcciones si es necesario.`;
 
-        // 3. Llamar a Gemini
         const result = await model.generateContent(prompt);
-        const fullText = result.response.text();
+        const iaRespuesta = result.response.text();
 
-        let iaRespuesta = fullText;
-        let correccionData = null;
-
-        if (fullText.includes('---CORRECCION---')) {
-            const parts = fullText.split('---CORRECCION---');
-            iaRespuesta = parts[0].trim();
-            try {
-                const jsonStr = parts[1].trim().replace(/```json|```/g, "");
-                correccionData = JSON.parse(jsonStr);
-            } catch (e) { console.error("Error JSON:", e); }
-        }
-
-        // 4. Guardar en DB
-        sesion.interacciones.push({ alumnoInput: inputAlumno, iaRespuesta, correccion: correccionData });
+        sesion.interacciones.push({ alumnoInput: inputAlumno, iaRespuesta });
         await sesion.save();
 
-        res.json({ sesionId: sesion._id, iaRespuesta, correccion: correccionData });
+        res.json({ sesionId: sesion._id, iaRespuesta });
 
     } catch (error) {
         console.error('Error en /hablar:', error);
