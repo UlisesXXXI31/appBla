@@ -68,21 +68,64 @@ app.post('/api/practica/hablar', async (req, res) => {
     }
 });
 
-// --- 4. RUTA: FINALIZAR (MARCA LA SESIÓN COMO TERMINADA) ---
+//antes de cerrar la sesión, llamará a Gemini para que analice todo el historial.
 app.post('/api/practica/finalizar', async (req, res) => {
     const { sesionId } = req.body;
+
     try {
         await conectarDB();
-        const sesion = await SesionPractica.findByIdAndUpdate(
-            sesionId,
-            { fechaFin: new Date(), estado: 'completada' },
-            { new: true }
-        );
-        if (!sesion) return res.status(404).json({ error: 'Sesión no encontrada.' });
-        res.json({ message: 'Sesión finalizada con éxito.', sesion });
+        const sesion = await SesionPractica.findById(sesionId);
+
+        if (!sesion || sesion.interacciones.length === 0) {
+            return res.status(400).json({ error: 'No hay interacciones para evaluar.' });
+        }
+
+        // 1. Preparamos el historial para la IA
+        const historial = sesion.interacciones.map(i => 
+            `Alumno: ${i.alumnoInput}\nIA: ${i.iaRespuesta}`
+        ).join('\n\n');
+
+        // 2. Prompt especializado para el examen Goethe B1
+        const promptEvaluacion = `
+            Actúa como un examinador senior del Goethe-Zertifikat B1. 
+            Analiza la siguiente conversación de práctica oral.
+            
+            HISTORIAL:
+            ${historial}
+
+            CRITERIOS A EVALUAR:
+            - Vocabulario (¿Usa palabras de nivel B1?).
+            - Estructura gramatical (¿Usa conectores como 'weil', 'obwohl', 'dass'?).
+            - Capacidad de interacción (¿Responde de forma lógica o repite palabras?).
+
+            RESPONDE ÚNICAMENTE EN FORMATO JSON (sin texto extra):
+            {
+              "puntuacion": (número del 0 al 100),
+              "feedback": "(breve resumen pedagógico en español)",
+              "nivelDetectado": "(ejemplo: B1.1, B1.2 o A2 si es muy bajo)",
+              "consejo": "(una tarea específica para mejorar)"
+            }
+        `;
+
+        // 3. Llamada a Gemini para la nota final
+        const result = await model.generateContent(promptEvaluacion);
+        const text = result.response.text().replace(/```json|```/g, "").trim();
+        const evaluacionJSON = JSON.parse(text);
+
+        // 4. Guardamos todo y cerramos sesión
+        sesion.estado = 'completada';
+        sesion.fechaFin = new Date();
+        sesion.evaluacionFinal = evaluacionJSON;
+        await sesion.save();
+
+        res.json({ 
+            message: 'Evaluación completada', 
+            evaluacion: evaluacionJSON 
+        });
+
     } catch (error) {
-        console.error('Error al finalizar:', error);
-        res.status(500).json({ error: error.message });
+        console.error('Error al evaluar:', error);
+        res.status(500).json({ error: 'Error al generar la evaluación final.' });
     }
 });
 
