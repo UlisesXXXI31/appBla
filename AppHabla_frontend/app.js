@@ -11,6 +11,7 @@ const statusDisplay = document.getElementById('status-display');
 const micButton = document.getElementById('mic-button');
 const temaSelect = document.getElementById('tema-select');
 
+
 //función para rellena el tema seleccionado
 function populateTopics() {
     TEMAS_ALEMAN.forEach(tema => {
@@ -117,15 +118,29 @@ micButton.addEventListener('click', startListening);
 statusDisplay.textContent = "Haz clic en el micrófono para empezar a hablar en alemán.";
 
 // Agrega una función para finalizar la sesión cuando el usuario decida terminar.
-document.getElementById('end-session-button').addEventListener('click', async () => {
-    if (currentSessionId) {
-        await fetch('${BASE_URL}/api/practica/finalizar', {
+// Asegúrate de que el ID coincida con el de tu HTML (ejemplo: finalizarBtn)
+document.getElementById('end-session-button').onclick = async () => {
+    // Si no hay sesionId (porque no han hablado aún), no hacemos nada
+    if (!sesionId) {
+        alert("No hay una sesión activa para finalizar.");
+        return;
+    }
+
+    try {
+        const response = await fetch('https://app-bla.vercel.app/api/practica/finalizar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sesionId: currentSessionId })
+            body: JSON.stringify({ sesionId: sesionId })
         });
-        statusDisplay.textContent = "Sesión de práctica finalizada. ¡Buen trabajo!";
-        currentSessionId = null;
+
+        if (response.ok) {
+            alert("✅ Sesión finalizada con éxito. ¡Buen trabajo!");
+            // Opcional: recargar la página o limpiar el chat
+            location.reload(); 
+        } else {
+            console.error("Error al finalizar:", await response.text());
+        }
+    } catch (error) {
+        console.error("Error de red:", error);
     }
-    
-});
+};
