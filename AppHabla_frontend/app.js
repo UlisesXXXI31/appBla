@@ -117,11 +117,10 @@ micButton.addEventListener('click', startListening);
 
 statusDisplay.textContent = "Haz clic en el micrófono para empezar a hablar en alemán.";
 
-// Agrega una función para finalizar la sesión cuando el usuario decida terminar.
-// Asegúrate de que el ID coincida con el de tu HTML (ejemplo: finalizarBtn)
+// función para finalizar la sesión cuando el usuario decida terminar.
 document.getElementById('end-session-button').onclick = async () => {
     // Si no hay sesionId (porque no han hablado aún), no hacemos nada
-    if (!sesionId) {
+    if (!currentSessionId) {
         alert("No hay una sesión activa para finalizar.");
         return;
     }
@@ -130,7 +129,7 @@ document.getElementById('end-session-button').onclick = async () => {
         const response = await fetch('https://app-bla.vercel.app/api/practica/finalizar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sesionId: sesionId })
+            body: JSON.stringify({ sesionId: currentSessionId })
         });
 
         if (response.ok) {
