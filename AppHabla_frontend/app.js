@@ -99,22 +99,16 @@ populateTopics(); // <-- Llama esta función al inicio
 statusDisplay.textContent = "Selecciona un tema y haz clic en el micrófono para empezar.";
 
 // --- Función 3: Salida de Voz (Text-to-Speech) ---
-function speakGerman(text) {
-    const utterance = new SpeechSynthesisUtterance(text);
-    // Configurar idioma alemán (crucial para la pronunciación)
-    utterance.lang = 'de-DE'; 
-    
-    utterance.onstart = () => {
-        statusDisplay.textContent = `IA dice: ${text}`;
-        micButton.disabled = true;
-    };
-    
-    utterance.onend = () => {
-        statusDisplay.textContent = `IA terminó. Presiona para continuar.`;
-        micButton.disabled = false;
-    };
+function hablar(texto) {
+    // Cancelar cualquier audio anterior
+    window.speechSynthesis.cancel();
 
-    window.speechSynthesis.speak(utterance);
+    const mensaje = new SpeechSynthesisUtterance(texto);
+    mensaje.lang = 'de-DE'; // Forzar idioma Alemán
+    mensaje.rate = 0.9;     // Un poco más lento para que se entienda
+    
+    // IMPORTANTE: En móviles, esto debe ser llamado dentro de un evento de click
+    window.speechSynthesis.speak(mensaje);
 }
 
 // --- Iniciar la Aplicación ---
