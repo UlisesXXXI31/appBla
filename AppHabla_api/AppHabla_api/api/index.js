@@ -11,7 +11,7 @@ app.use(express.json());
 
 let isConnected = false;
 
-// Función de conexión mejorada
+// --- 1. FUNCIÓN DE CONEXIÓN A DB ---
 const conectarDB = async () => {
     if (mongoose.connection.readyState === 1) {
         isConnected = true;
@@ -30,23 +30,22 @@ const conectarDB = async () => {
 };
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// Cambiamos a gemini-2.0-flash que es el estándar en marzo de 2026
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// RUTA DE PRUEBA: Ahora intentará conectar para decirte si todo está bien
+// --- 2. RUTA DE INICIO (HEALTH CHECK) ---
 app.get('/', async (req, res) => {
-    await conectarDB(); 
+    await conectarDB();
     res.json({ 
         mensaje: "API Activa 🚀", 
-        dbStatus: isConnected ? "Conectado ✅" : "Desconectado ❌ (Revisa tu MONGODB_URI)" 
+        dbStatus: isConnected ? "Conectado ✅" : "Desconectado ❌" 
     });
 });
 
+// --- 3. RUTA: HABLAR (EL ALUMNO HABLA CON LA IA) ---
 app.post('/api/practica/hablar', async (req, res) => {
     const { alumnoId, sesionId, inputAlumno, tema } = req.body;
     try {
         await conectarDB();
-        
         let sesion;
         if (sesionId) {
             sesion = await SesionPractica.findById(sesionId);
@@ -56,7 +55,6 @@ app.post('/api/practica/hablar', async (req, res) => {
         }
 
         const prompt = `Eres profesor de alemán B1. Tema: ${sesion.tema}. Alumno: ${inputAlumno}. Responde de forma natural y añade correcciones si es necesario.`;
-
         const result = await model.generateContent(prompt);
         const iaRespuesta = result.response.text();
 
@@ -64,9 +62,44 @@ app.post('/api/practica/hablar', async (req, res) => {
         await sesion.save();
 
         res.json({ sesionId: sesion._id, iaRespuesta });
-
     } catch (error) {
         console.error('Error en /hablar:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- 4. RUTA: FINALIZAR (MARCA LA SESIÓN COMO TERMINADA) ---
+app.post('/api/practica/finalizar', async (req, res) => {
+    const { sesionId } = req.body;
+    try {
+        await conectarDB();
+        const sesion = await SesionPractica.findByIdAndUpdate(
+            sesionId,
+            { fechaFin: new Date(), estado: 'completada' },
+            { new: true }
+        );
+        if (!sesion) return res.status(404).json({ error: 'Sesión no encontrada.' });
+        res.json({ message: 'Sesión finalizada con éxito.', sesion });
+    } catch (error) {
+        console.error('Error al finalizar:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- 5. RUTA: PROFESOR (VER PROGRESO DEL ALUMNO) ---
+app.get('/profesor/progreso/:alumnoId', async (req, res) => {
+    try {
+        await conectarDB();
+        const sesiones = await SesionPractica.find({ 
+            alumnoId: req.params.alumnoId, 
+            estado: 'completada' 
+        });
+        res.json({
+            alumnoId: req.params.alumnoId,
+            totalSesiones: sesiones.length,
+            sesiones: sesiones
+        });
+    } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
