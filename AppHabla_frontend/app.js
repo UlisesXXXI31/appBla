@@ -83,7 +83,7 @@ async function sendToBackend(inputAlumno) {
         currentSessionId = data.sesionId; 
 
         // 2. Reproducir la respuesta de la IA
-        speakGerman(data.iaRespuesta); 
+        hablar(data.iaRespuesta); 
 
         micButton.disabled = false; // Habilitar el micrófono para la siguiente ronda
 
