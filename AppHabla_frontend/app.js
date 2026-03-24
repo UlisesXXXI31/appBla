@@ -117,15 +117,22 @@ micButton.addEventListener('click', startListening);
 
 statusDisplay.textContent = "Haz clic en el micrófono para empezar a hablar en alemán.";
 
-// función para finalizar la sesión cuando el usuario decida terminar.
+// Función para finalizar la sesión y obtener la evaluación del Goethe B1
 document.getElementById('end-session-button').onclick = async () => {
-    // Si no hay sesionId (porque no han hablado aún), no hacemos nada
+    // 1. Verificación inicial
     if (!currentSessionId) {
         alert("No hay una sesión activa para finalizar.");
         return;
     }
 
+    // 2. Feedback visual (Evita que el usuario pulse varias veces mientras la IA piensa)
+    const btn = document.getElementById('end-session-button');
+    const originalText = btn.innerText;
+    btn.innerText = "⏳ Evaluando tu nivel B1...";
+    btn.disabled = true;
+
     try {
+        // 3. Llamada al endpoint de finalizar
         const response = await fetch('https://app-bla.vercel.app/api/practica/finalizar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -133,13 +140,37 @@ document.getElementById('end-session-button').onclick = async () => {
         });
 
         if (response.ok) {
-            alert("✅ Sesión finalizada con éxito. ¡Buen trabajo!");
-            // Opcional: recargar la página o limpiar el chat
+            const data = await response.json();
+            const ev = data.evaluacion; // Aquí llega la nota de Gemini
+
+            // 4. Mostrar el "Informe de Calificación" al alumno
+            alert(`
+            🏆 RESULTADO GOETHE-ZERTIFIKAT B1 🏆
+            ------------------------------------------
+            PUNTUACIÓN: ${ev.puntuacion} / 100
+            NIVEL DETECTADO: ${ev.nivelDetectado}
+
+            FEEDBACK DEL EXAMINADOR:
+            ${ev.feedback}
+
+            CONSEJO PARA MEJORAR:
+            ${ev.consejo}
+            ------------------------------------------
+            ✅ Tu sesión ha sido guardada con éxito.
+            `);
+
+            // 5. Reiniciar la aplicación para una nueva práctica
             location.reload(); 
         } else {
-            console.error("Error al finalizar:", await response.text());
+            const errorText = await response.text();
+            alert("Error al finalizar: " + errorText);
+            btn.innerText = originalText;
+            btn.disabled = false;
         }
     } catch (error) {
         console.error("Error de red:", error);
+        alert("Error de conexión con el servidor.");
+        btn.innerText = originalText;
+        btn.disabled = false;
     }
 };
