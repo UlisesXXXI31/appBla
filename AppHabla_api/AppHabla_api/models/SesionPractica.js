@@ -26,5 +26,15 @@ const SesionPracticaSchema = new mongoose.Schema({
     estado: { type: String, default: 'pendiente' } 
 }, { timestamps: true });
 
+    ],
+    // --- NUEVO CAMPO ---
+    evaluacionFinal: {
+        puntuacion: Number,
+        feedback: String,
+        nivelDetectado: String,
+        consejo: String
+    }
+});
+
 // Cambiado a exportación de ES Modules
 export default mongoose.model('SesionPractica', SesionPracticaSchema);
