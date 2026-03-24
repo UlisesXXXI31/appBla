@@ -2,7 +2,7 @@
 import { TEMAS_ALEMAN } from './temas.js';
 
 const BASE_URL = 'https://app-bla.vercel.app'; 
-const API_URL = `${BASE_URL}/practica/hablar`;
+const API_URL = `${BASE_URL}api/practica/hablar`;
 let currentSessionId = null;
 const ALUMNO_ID = 'alumno_demo_001'; // Usar un ID de alumno real
 
