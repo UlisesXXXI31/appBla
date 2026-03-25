@@ -14,12 +14,30 @@ const temaSelect = document.getElementById('tema-select');
 
 //función para rellena el tema seleccionado
 function populateTopics() {
+     // 1. Limpiar el selector por si acaso
+    temaSelect.innerHTML = '<option value="" disabled selected>Selecciona un tema...</option>';
+    
+     // 2. Añadir Temas Generales
+    const grupoGeneral = document.createElement('optgroup');
+    grupoGeneral.label = "── Temas Generales ──";
     TEMAS_ALEMAN.forEach(tema => {
         const option = document.createElement('option');
-        option.value = tema.id; // El valor que enviamos al backend
+        option.value = tema.id;
         option.textContent = tema.nombre;
-        temaSelect.appendChild(option);
+        grupoGeneral.appendChild(option);
     });
+    temaSelect.appendChild(grupoGeneral);
+    // 3. Añadir Temas del Goethe B1
+    const grupoGoethe = document.createElement('optgroup');
+    grupoGoethe.label = "── Examen Goethe B1 ──";
+    temasGoetheB1.forEach(tema => {
+        const option = document.createElement('option');
+        option.value = tema.id;
+        option.textContent = tema.nombre;
+        grupoGoethe.appendChild(option);
+    });
+    temaSelect.appendChild(grupoGoethe);
+}
 }
 // --- Función 1: Captura de Voz (Speech-to-Text) ---
 function startListening() {
