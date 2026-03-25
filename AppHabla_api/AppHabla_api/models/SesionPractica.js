@@ -26,7 +26,7 @@ const SesionPracticaSchema = new mongoose.Schema({
     estado: { type: String, default: 'pendiente' } 
 }, { timestamps: true });
 
-    ],
+
     // --- NUEVO CAMPO ---
     evaluacionFinal: {
         puntuacion: Number,
