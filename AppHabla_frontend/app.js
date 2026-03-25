@@ -1,5 +1,5 @@
-// app.js
-import { TEMAS_ALEMAN } from './temas.js';
+// Importamos los temas 
+import { TEMAS_ALEMAN, temasGoetheB1 } from './temas.js';
 
 const BASE_URL = 'https://app-bla.vercel.app'; 
 const API_URL = `${BASE_URL}/api/practica/hablar`;
@@ -16,7 +16,7 @@ const temaSelect = document.getElementById('tema-select');
 function populateTopics() {
     TEMAS_ALEMAN.forEach(tema => {
         const option = document.createElement('option');
-        option.value = tema.nombre; // El valor que enviamos al backend
+        option.value = tema.id; // El valor que enviamos al backend
         option.textContent = tema.nombre;
         temaSelect.appendChild(option);
     });
