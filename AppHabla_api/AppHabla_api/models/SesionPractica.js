@@ -23,18 +23,19 @@ const SesionPracticaSchema = new mongoose.Schema({
 
     fechaInicio: { type: Date, default: Date.now },
     fechaFin: Date, 
-    estado: { type: String, default: 'pendiente' } 
-}, { timestamps: true });
-
-
-    // --- NUEVO CAMPO ---
+    estado: { type: String, default: 'pendiente' },
+    
+    // --- NUEVO CAMPO Y CORREGIDO EL ERROR DE SINTAXIS ---
     evaluacionFinal: {
         puntuacion: Number,
         feedback: String,
         nivelDetectado: String,
         consejo: String
     }
-});
+    // <-- ¡Aquí faltaba cerrar el objeto principal del esquema!
+}, { timestamps: true });
 
-// Cambiado a exportación de ES Modules
-export default mongoose.model('SesionPractica', SesionPracticaSchema);
+
+// Exportado correctamente
+const SesionPractica = mongoose.models.SesionPractica || mongoose.model('SesionPractica', SesionPracticaSchema);
+export default SesionPractica;
