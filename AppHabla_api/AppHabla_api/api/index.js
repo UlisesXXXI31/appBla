@@ -42,30 +42,39 @@ app.get('/', async (req, res) => {
 });
 
 // --- 3. RUTA: HABLAR (EL ALUMNO HABLA CON LA IA) ---
- // --- DINÁMICA DE PERSONA SEGÚN EL TEMA ---
+app.post('/api/practica/hablar', async (req, res) => {
+    const { alumnoId, sesionId, inputAlumno, tema } = req.body;
+    
+    try {
+        await conectarDB();
+        let sesion;
+        if (sesionId) {
+            sesion = await SesionPractica.findById(sesionId);
+        }
+        if (!sesion) {
+            sesion = new SesionPractica({ alumnoId, tema: tema || 'Mi rutina diaria' });
+        }
+
+        // --- DINÁMICA DE PERSONA SEGÚN EL TEMA ---
         let instruccionesRol = "";
         const temaActual = sesion.tema;
 
         if (temaActual.startsWith('p1_')) {
-            // Modo Planificación (Teil 1 Goethe)
             instruccionesRol = `
                 Actúa como el COMPAÑERO DE CLASE y AMIGO del alumno. 
                 Vais a organizar juntos una actividad (ID de tema: ${temaActual}). 
                 Debes proponer ideas, negociar y ser entusiasta.`;
         } else if (temaActual.startsWith('p2_')) {
-            // Modo Presentación (Teil 2 & 3 Goethe)
             instruccionesRol = `
                 Actúa como un EXAMINADOR JOVEN Y CERCANO. 
                 Escucha la presentación del alumno sobre el tema: ${temaActual}. 
                 Hazle una pregunta interesante sobre su opinión o vida diaria para generar debate.`;
         } else {
-            // Modo Charla General
             instruccionesRol = `
                 Actúa como un AMIGO del alumno charlando en el recreo. 
                 El tema es: "${temaActual}". Haz que la conversación sea divertida y relajada.`;
         }
 
-        // --- CONSTRUCCIÓN DEL PROMPT FINAL ---
         const promptFinal = `
             Eres un tutor de alemán experto para ADOLESCENTES que se preparan para el B1.
             Tu tono es motivador, paciente y moderno.
@@ -83,11 +92,9 @@ app.get('/', async (req, res) => {
             Entrada del alumno: "${inputAlumno}"
         `;
 
-        // Llamada a Gemini
         const result = await model.generateContent(promptFinal);
         const iaRespuesta = result.response.text();
 
-        // Guardamos la interacción
         sesion.interacciones.push({ alumnoInput: inputAlumno, iaRespuesta });
         await sesion.save();
 
@@ -98,7 +105,7 @@ app.get('/', async (req, res) => {
     }
 });
 
-//antes de cerrar la sesión, llamará a Gemini para que analice todo el historial.
+// --- 4. RUTA: FINALIZAR (CON EVALUACIÓN) ---
 app.post('/api/practica/finalizar', async (req, res) => {
     const { sesionId } = req.body;
 
@@ -110,39 +117,30 @@ app.post('/api/practica/finalizar', async (req, res) => {
             return res.status(400).json({ error: 'No hay interacciones para evaluar.' });
         }
 
-        // 1. Preparamos el historial para la IA
         const historial = sesion.interacciones.map(i => 
             `Alumno: ${i.alumnoInput}\nIA: ${i.iaRespuesta}`
         ).join('\n\n');
 
-        // 2. Prompt especializado para el examen Goethe B1
         const promptEvaluacion = `
             Actúa como un examinador senior del Goethe-Zertifikat B1. 
             Analiza la siguiente conversación de práctica oral.
-            
             HISTORIAL:
             ${historial}
-
             CRITERIOS A EVALUAR:
-            - Vocabulario (¿Usa palabras de nivel B1?).
-            - Estructura gramatical (¿Usa conectores como 'weil', 'obwohl', 'dass'?).
-            - Capacidad de interacción (¿Responde de forma lógica o repite palabras?).
-
-            RESPONDE ÚNICAMENTE EN FORMATO JSON (sin texto extra):
+            - Vocabulario B1, Gramática (weil, obwohl, dass), Interacción.
+            RESPONDE ÚNICAMENTE EN FORMATO JSON:
             {
-              "puntuacion": (número del 0 al 100),
-              "feedback": "(breve resumen pedagógico en español)",
-              "nivelDetectado": "(ejemplo: B1.1, B1.2 o A2 si es muy bajo)",
-              "consejo": "(una tarea específica para mejorar)"
+              "puntuacion": (0-100),
+              "feedback": "(en español)",
+              "nivelDetectado": "(B1.1, B1.2...)",
+              "consejo": "(tarea específica)"
             }
         `;
 
-        // 3. Llamada a Gemini para la nota final
         const result = await model.generateContent(promptEvaluacion);
         const text = result.response.text().replace(/```json|```/g, "").trim();
         const evaluacionJSON = JSON.parse(text);
 
-        // 4. Guardamos todo y cerramos sesión
         sesion.estado = 'completada';
         sesion.fechaFin = new Date();
         sesion.evaluacionFinal = evaluacionJSON;
