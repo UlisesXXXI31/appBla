@@ -38,7 +38,7 @@ function populateTopics() {
     });
     temaSelect.appendChild(grupoGoethe);
 }
-}
+
 // --- Función 1: Captura de Voz (Speech-to-Text) ---
 function startListening() {
     // Verificar compatibilidad del navegador
