@@ -71,8 +71,6 @@ function startListening() {
 async function sendToBackend(inputAlumno) {
     try {
         statusDisplay.textContent = "Denken... (Pensando)";
-        
-        // --- CAMBIO CLAVE: Capturamos el valor actual del selector ---
         const temaSeleccionado = temaSelect.value || "General";
 
         const response = await fetch(API_URL, {
@@ -82,24 +80,23 @@ async function sendToBackend(inputAlumno) {
                 alumnoId: ALUMNO_ID,
                 sesionId: currentSessionId,
                 inputAlumno: inputAlumno,
-                tema: temaSeleccionado // <-- Ahora es dinámico
+                tema: temaSeleccionado
             })
         });
 
-        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-
         const data = await response.json();
         currentSessionId = data.sesionId; 
-        
-        // Mostrar respuesta y hablar
         statusDisplay.textContent = data.iaRespuesta;
-        hablar(data.iaRespuesta); 
+
+        // --- 🔊 REPRODUCIR EL AUDIO HUMANO ---
+        if (data.audioContent) {
+            const audio = new Audio("data:audio/mp3;base64," + data.audioContent);
+            audio.play();
+        }
 
         micButton.disabled = false;
-
     } catch (error) {
-        console.error("Fallo backend:", error);
-        statusDisplay.textContent = `Verbindungsfehler (Error de conexión)`;
+        statusDisplay.textContent = "Error de conexión.";
         micButton.disabled = false;
     }
 }
