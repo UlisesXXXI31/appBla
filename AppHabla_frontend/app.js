@@ -107,12 +107,29 @@ async function sendToBackend(inputAlumno) {
 // --- Función 3: Salida de Voz (Text-to-Speech) ---
 function hablar(texto) {
     window.speechSynthesis.cancel();
-    const mensaje = new SpeechSynthesisUtterance(texto);
+
+    // 1. LIMPIEZA: Borramos emojis y símbolos extraños para que no los "lea"
+    const textoLimpio = texto.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+
+    // 2. Quitamos también asteriscos o etiquetas de formato que Gemini a veces pone
+    const textoFinal = textoLimpio.replace(/\*|_|#/g, '');
+
+    const mensaje = new SpeechSynthesisUtterance(textoFinal);
     mensaje.lang = 'de-DE';
-    mensaje.rate = 0.9;
+
+    // 3. BUSCAR MEJOR VOZ: Intentamos encontrar una voz "Natural" de Google o Microsoft
+    const voces = window.speechSynthesis.getVoices();
+    // Buscamos voces alemanas que suelan ser de alta calidad
+    const mejorVoz = voces.find(v => v.lang === 'de-DE' && (v.name.includes('Google') || v.name.includes('Natural'))) 
+                   || voces.find(v => v.lang === 'de-DE');
+
+    if (mejorVoz) mensaje.voice = mejorVoz;
+
+    mensaje.rate = 0.95; // Velocidad ligeramente pausada para aprendizaje
+    mensaje.pitch = 1.0;
+
     window.speechSynthesis.speak(mensaje);
 }
-
 // --- Lógica del Botón Finalizar ---
 document.getElementById('end-session-button').onclick = async () => {
     if (!currentSessionId) {
