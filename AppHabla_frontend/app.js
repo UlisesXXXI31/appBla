@@ -1,5 +1,5 @@
 // Importamos los temas 
-import { TEMAS_ALEMAN, temasGoetheB1 } from './temas.js';
+import { TEMAS_ALEMAN, TEMAS_GOETHEB1 } from './temas.js';
 
 const BASE_URL = 'https://app-bla.vercel.app'; 
 const API_URL = `${BASE_URL}/api/practica/hablar`;
