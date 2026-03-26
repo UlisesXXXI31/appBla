@@ -29,7 +29,7 @@ function populateTopics() {
     // 2. Temas del Goethe B1
     const grupoGoethe = document.createElement('optgroup');
     grupoGoethe.label = "── Goethe-Zertifikat B1 ──";
-    temasGoetheB1.forEach(tema => {
+    TEMAS_GOETHEB1.forEach(tema => {
         const option = document.createElement('option');
         option.value = tema.id; // Enviamos el ID (p1_... o p2_...)
         option.textContent = tema.nombre;
