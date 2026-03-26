@@ -63,35 +63,41 @@ app.post('/api/practica/hablar', async (req, res) => {
         const textoParaVoz = iaRespuesta.split('---CORRECCION---')[0].replace(/[*_#]/g, '');
 
         const responseAudio = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'xi-api-key': process.env.ELEVENLABS_API_KEY
-            },
-            body: JSON.stringify({
-                text: textoParaVoz,
-                model_id: "eleven_multilingual_v2",
-                voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-            })
-        });
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'xi-api-key': process.env.ELEVENLABS_API_KEY
+        },
+        body: JSON.stringify({
+            text: textoParaVoz,
+            model_id: "eleven_multilingual_v2",
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+        })
+    });
 
-        const audioBuffer = await responseAudio.arrayBuffer();
-        const audioBase64 = Buffer.from(audioBuffer).toString('base64');
-
-        // Guardamos y enviamos texto + audio
-        sesion.interacciones.push({ alumnoInput: inputAlumno, iaRespuesta });
-        await sesion.save();
-
-        res.json({ 
-            sesionId: sesion._id, 
-            iaRespuesta: iaRespuesta, 
-            audioContent: audioBase64 
-        });
-
-    } catch (error) {
-        console.error("Error:", error);
-        res.status(500).json({ error: error.message });
+    if (!responseAudio.ok) {
+        const errorData = await responseAudio.json();
+        console.error("Error de ElevenLabs:", errorData);
+        // Si falla ElevenLabs, enviamos el texto solo para no bloquear la app
+        return res.json({ sesionId: sesion._id, iaRespuesta, audioContent: null });
     }
+
+    const audioBuffer = await responseAudio.arrayBuffer();
+    const audioBase64 = Buffer.from(audioBuffer).toString('base64');
+
+    sesion.interacciones.push({ alumnoInput: inputAlumno, iaRespuesta });
+    await sesion.save();
+
+    res.json({ 
+        sesionId: sesion._id, 
+        iaRespuesta: iaRespuesta, 
+        audioContent: audioBase64 
+    });
+
+} catch (error) {
+    console.error("Error general:", error);
+    res.status(500).json({ error: error.message });
+}
 });
 // --- 4. RUTA: FINALIZAR (CON EVALUACIÓN) ---
 app.post('/api/practica/finalizar', async (req, res) => {
