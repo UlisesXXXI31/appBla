@@ -44,67 +44,55 @@ app.get('/', async (req, res) => {
 // --- 3. RUTA: HABLAR (EL ALUMNO HABLA CON LA IA) ---
 app.post('/api/practica/hablar', async (req, res) => {
     const { alumnoId, sesionId, inputAlumno, tema } = req.body;
-    
     try {
         await conectarDB();
-        let sesion;
-        if (sesionId) {
-            sesion = await SesionPractica.findById(sesionId);
-        }
-        if (!sesion) {
-            sesion = new SesionPractica({ alumnoId, tema: tema || 'Mi rutina diaria' });
-        }
+        let sesion = sesionId ? await SesionPractica.findById(sesionId) : new SesionPractica({ alumnoId, tema });
 
-        // --- DINÁMICA DE PERSONA SEGÚN EL TEMA ---
-        let instruccionesRol = "";
-        const temaActual = sesion.tema;
+        // PROMPT MOTIVADOR (Personalidad de Coach)
+        const prompt = `Eres el mejor COACH de alemán para adolescentes. 
+        Tu tono es súper motivador, divertido y cercano. Usa siempre 'du'.
+        Tema: ${sesion.tema}. Alumno: ${inputAlumno}.
+        REGLA: Responde animando mucho al alumno ("¡Genial!", "¡Sigue así!"). 
+        Si hay error, añade al final ---CORRECCION--- con el JSON.`;
 
-        if (temaActual.startsWith('p1_')) {
-            instruccionesRol = `
-                Actúa como el COMPAÑERO DE CLASE y AMIGO del alumno. 
-                Vais a organizar juntos una actividad (ID de tema: ${temaActual}). 
-                Debes proponer ideas, negociar y ser entusiasta.`;
-        } else if (temaActual.startsWith('p2_')) {
-            instruccionesRol = `
-                Actúa como un EXAMINADOR JOVEN Y CERCANO. 
-                Escucha la presentación del alumno sobre el tema: ${temaActual}. 
-                Hazle una pregunta interesante sobre su opinión o vida diaria para generar debate.`;
-        } else {
-            instruccionesRol = `
-                Actúa como un AMIGO del alumno charlando en el recreo. 
-                El tema es: "${temaActual}". Haz que la conversación sea divertida y relajada.`;
-        }
-
-        const promptFinal = `
-            Eres un tutor de alemán experto para ADOLESCENTES que se preparan para el B1.
-            Tu tono es motivador, paciente y moderno.
-
-            REGLAS CRÍTICAS:
-            1. USA SIEMPRE EL TRATO DE 'DU' (tutear). Prohibido usar 'Sie'.
-            2. NIVEL: Alemán B1 claro y natural.
-            3. ROL ESPECÍFICO: ${instruccionesRol}
-            
-            FORMATO DE RESPUESTA:
-            Responde de forma fluida. Si detectas un error gramatical o de vocabulario importante, 
-            mantén la charla pero añade al final de tu respuesta:
-            ---CORRECCION--- {"fraseOriginal": "...", "tipoError": "...", "fraseCorregida": "..."}
-
-            Entrada del alumno: "${inputAlumno}"
-        `;
-
-        const result = await model.generateContent(promptFinal);
+        const result = await model.generateContent(prompt);
         const iaRespuesta = result.response.text();
 
+        // --- 🎙️ CONEXIÓN CON ELEVENLABS ---
+        // Limpiamos el texto de asteriscos y emojis para que la voz no haga ruidos raros
+        const textoParaVoz = iaRespuesta.split('---CORRECCION---')[0].replace(/[*_#]/g, '');
+
+        const responseAudio = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'xi-api-key': process.env.ELEVENLABS_API_KEY
+            },
+            body: JSON.stringify({
+                text: textoParaVoz,
+                model_id: "eleven_multilingual_v2",
+                voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+            })
+        });
+
+        const audioBuffer = await responseAudio.arrayBuffer();
+        const audioBase64 = Buffer.from(audioBuffer).toString('base64');
+
+        // Guardamos y enviamos texto + audio
         sesion.interacciones.push({ alumnoInput: inputAlumno, iaRespuesta });
         await sesion.save();
 
-        res.json({ sesionId: sesion._id, iaRespuesta });
+        res.json({ 
+            sesionId: sesion._id, 
+            iaRespuesta: iaRespuesta, 
+            audioContent: audioBase64 
+        });
+
     } catch (error) {
-        console.error('Error en /hablar:', error);
+        console.error("Error:", error);
         res.status(500).json({ error: error.message });
     }
 });
-
 // --- 4. RUTA: FINALIZAR (CON EVALUACIÓN) ---
 app.post('/api/practica/finalizar', async (req, res) => {
     const { sesionId } = req.body;
