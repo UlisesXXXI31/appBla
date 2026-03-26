@@ -6,7 +6,7 @@ export const TEMAS_ALEMAN = [
     { id: 'trabajo', nombre: 'Mi trabajo / estudios', descripcion: 'Describe tus asignaturas en el colegio.' },
     { id: 'comida', nombre: 'Cocina y alimentación', descripcion: 'Discute tus comidas favoritas, recetas y hábitos alimenticios.' }
 ],
-const temasGoetheB1 = [
+const TEMAS_GOETHEB1 = [
     // --- TEIL 1: Gemeinsam etwas planen (Diálogo de planificación) ---
     { id: 'p1_party', tipo: 'planen', nombre: 'Planen: Eine Abschiedsparty (Fiesta de despedida)' },
     { id: 'p1_ausflug', tipo: 'planen', nombre: 'Planen: Ein Ausflug am Wochenende (Excursión)' },
@@ -23,6 +23,6 @@ const temasGoetheB1 = [
 ];
 
 // Exportamos para que app.js lo pueda usar
-export default temasGoetheB1;;
+export default TEMAS_GOETHEB1;
 
 // El ID se usará internamente, y el nombre se mostrará en la interfaz.
