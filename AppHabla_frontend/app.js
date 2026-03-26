@@ -85,14 +85,21 @@ async function sendToBackend(inputAlumno) {
         });
 
         const data = await response.json();
+        console.log("Datos recibidos de la API:", data); 
+        
         currentSessionId = data.sesionId; 
         statusDisplay.textContent = data.iaRespuesta;
 
         // --- 🔊 REPRODUCIR EL AUDIO HUMANO ---
         if (data.audioContent) {
             const audio = new Audio("data:audio/mp3;base64," + data.audioContent);
-            audio.play();
-        }
+            audio.play().catch(e => console.error("Error al reproducir audio:", e));
+        } 
+        else {
+    // Si ElevenLabs falló, usamos la voz del navegador como "plan B"
+    console.warn("No llegó audio de ElevenLabs, usando voz del sistema.");
+    hablar(data.iaRespuesta); 
+    }
 
         micButton.disabled = false;
     } catch (error) {
