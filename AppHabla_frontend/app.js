@@ -88,18 +88,40 @@ async function sendToBackend(inputAlumno) {
         console.log("Datos recibidos de la API:", data); 
         
         currentSessionId = data.sesionId; 
-        statusDisplay.textContent = data.iaRespuesta;
 
-        // --- 🔊 REPRODUCIR EL AUDIO HUMANO ---
+        // --- 1. SEPARAR RESPUESTA DE CORRECCIÓN ---
+        const partes = data.iaRespuesta.split('---CORRECCION---');
+        const respuestaTutor = partes[0].trim(); // Lo que el tutor dice (Alemán)
+        let htmlFinal = `<div class="tutor-msg">${respuestaTutor}</div>`;
+
+        // Si hay una corrección técnica, la preparamos para el diseño
+        if (partes[1]) {
+            try {
+                const correccion = JSON.parse(partes[1].trim());
+                htmlFinal += `
+                    <div style="background: #fff3f3; color: #d9534f; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.85em; border-left: 4px solid #d9534f;">
+                        💡 <b>Korrektur:</b> <br>
+                        <small>Original: "${correccion.fraseOriginal}"</small><br>
+                        <b>Richtig: "${correccion.fraseCorregida}"</b>
+                    </div>
+                `;
+            } catch (e) {
+                console.error("Error al leer el JSON de corrección", e);
+            }
+        }
+
+        // Mostramos el texto formateado en la pantalla
+        statusDisplay.innerHTML = htmlFinal;
+
+        // --- 2. 🔊 REPRODUCIR EL AUDIO HUMANO (ELEVENLABS) ---
         if (data.audioContent) {
             const audio = new Audio("data:audio/mp3;base64," + data.audioContent);
             audio.play().catch(e => console.error("Error al reproducir audio:", e));
         } 
         else {
-    // Si ElevenLabs falló, usamos la voz del navegador como "plan B"
-    console.warn("No llegó audio de ElevenLabs, usando voz del sistema.");
-    hablar(data.iaRespuesta); 
-    }
+            console.warn("No llegó audio de ElevenLabs, usando voz del sistema.");
+            hablar(respuestaTutor); // Solo hablamos la parte en alemán
+        }
 
         micButton.disabled = false;
     } catch (error) {
@@ -107,7 +129,6 @@ async function sendToBackend(inputAlumno) {
         micButton.disabled = false;
     }
 }
-
 // --- Función 3: Salida de Voz (Text-to-Speech) ---
 function hablar(texto) {
     window.speechSynthesis.cancel();
