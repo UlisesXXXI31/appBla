@@ -66,7 +66,7 @@ app.post('/api/practica/hablar', async (req, res) => {
     Entrada del alumno: "${inputAlumno}"
 `;
 
-        const result = await model.generateContent(prompt);
+        const result = await model.generateContent(promptFinal);
         const iaRespuesta = result.response.text();
 
         // --- 🎙️ CONEXIÓN CON ELEVENLABS ---
