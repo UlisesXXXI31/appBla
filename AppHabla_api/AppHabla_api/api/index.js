@@ -76,42 +76,30 @@ app.post('/api/practica/hablar', async (req, res) => {
         const partes = iaRespuesta.split('---CORRECCION---');
        const textoSoloAleman = partes[0].trim().replace(/[*_#]/g, '');
 
-      // Enviamos textoSoloAleman a ElevenLabs
-     const responseAudio = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}`, {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-        'xi-api-key': process.env.ELEVENLABS_API_KEY
-    },
-    body: JSON.stringify({
-        text: textoSoloAleman, // <--- AQUÍ SOLO ENVIAMOS EL ALEMÁN
-        model_id: "eleven_multilingual_v2",
-        voice_settings: { stability: 0.5, similarity_boost: 0.8 }
-    })
-   });
-
-    if (!responseAudio.ok) {
-        const errorData = await responseAudio.json();
-        console.error("Error de ElevenLabs:", errorData);
-        // Si falla ElevenLabs, enviamos el texto solo para no bloquear la app
-        return res.json({ sesionId: sesion._id, iaRespuesta, audioContent: null });
-    }
-
-    const audioBuffer = await responseAudio.arrayBuffer();
-    const audioBase64 = Buffer.from(audioBuffer).toString('base64');
-
-    sesion.interacciones.push({ alumnoInput: inputAlumno, iaRespuesta });
-    await sesion.save();
-
-    res.json({ 
-        sesionId: sesion._id, 
-        iaRespuesta: iaRespuesta, 
-        audioContent: audioBase64 
+   const responseAudio = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'xi-api-key': process.env.ELEVENLABS_API_KEY
+        },
+        body: JSON.stringify({
+            text: textoParaVoz,
+            model_id: "eleven_multilingual_v2", // Este modelo es el mejor para alemán
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+        })
     });
 
-} catch (error) {
-    console.error("Error general:", error);
-    res.status(500).json({ error: error.message });
+    if (responseAudio.ok) {
+        console.log("✅ Audio de ElevenLabs generado con éxito");
+        const audioBuffer = await responseAudio.arrayBuffer();
+        audioBase64 = Buffer.from(audioBuffer).toString('base64');
+    } else {
+        const errorDetail = await responseAudio.json();
+        // ESTO TE DIRÁ EL ERROR REAL EN LOS LOGS DE VERCEL:
+        console.error("❌ FALLO ELEVENLABS:", errorDetail.detail.status, errorDetail.detail.message);
+    }
+} catch (e) {
+    console.error("❌ Error de red con ElevenLabs:", e.message);
 }
 });
 // --- 4. RUTA: FINALIZAR (CON EVALUACIÓN) ---
