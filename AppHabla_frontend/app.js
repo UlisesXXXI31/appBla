@@ -1,179 +1,112 @@
-// Importamos los temas 
 import { TEMAS_ALEMAN, TEMAS_GOETHEB1 } from './temas.js';
 
 const BASE_URL = 'https://app-bla.vercel.app'; 
-const API_URL = `${BASE_URL}/api/practica/hablar`;
 let currentSessionId = null;
-const ALUMNO_ID = 'alumno_demo_001'; 
+const ALUMNO_ID = 'usuario_pro_2026';
 
-// Referencias del DOM
 const statusDisplay = document.getElementById('status-display');
 const micButton = document.getElementById('mic-button');
 const temaSelect = document.getElementById('tema-select');
+const endButton = document.getElementById('end-session-button');
 
-// --- Función para rellenar el selector de temas ---
+// Rellenar selector de temas
 function populateTopics() {
     temaSelect.innerHTML = '<option value="" disabled selected>Wähle ein Thema...</option>';
     
-    // 1. Temas Generales
-    const grupoGeneral = document.createElement('optgroup');
-    grupoGeneral.label = "── Allgemein (General) ──";
-    TEMAS_ALEMAN.forEach(tema => {
-        const option = document.createElement('option');
-        option.value = tema.nombre; // Enviamos el nombre directamente
-        option.textContent = tema.nombre;
-        grupoGeneral.appendChild(option);
+    const g1 = document.createElement('optgroup');
+    g1.label = "── Temas Generales ──";
+    TEMAS_ALEMAN.forEach(t => {
+        let o = document.createElement('option');
+        o.value = t.nombre; o.textContent = t.nombre; g1.appendChild(o);
     });
-    temaSelect.appendChild(grupoGeneral);
+    temaSelect.appendChild(g1);
 
-    // 2. Temas del Goethe B1
-    const grupoGoethe = document.createElement('optgroup');
-    grupoGoethe.label = "── Goethe-Zertifikat B1 ──";
-    TEMAS_GOETHEB1.forEach(tema => {
-        const option = document.createElement('option');
-        option.value = tema.id; // Enviamos el ID (p1_... o p2_...)
-        option.textContent = tema.nombre;
-        grupoGoethe.appendChild(option);
+    const g2 = document.createElement('optgroup');
+    g2.label = "── Examen Goethe B1 ──";
+    TEMAS_GOETHEB1.forEach(t => {
+        let o = document.createElement('option');
+        o.value = t.id; o.textContent = t.nombre; g2.appendChild(o);
     });
-    temaSelect.appendChild(grupoGoethe);
+    temaSelect.appendChild(g2);
 }
 
-// --- Función 1: Captura de Voz (Speech-to-Text) ---
-function startListening() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        statusDisplay.textContent = "Error: Navegador no compatible.";
-        return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'de-DE';
-    recognition.interimResults = false;
-
-    statusDisplay.textContent = "Ich höre zu... (Escuchando)";
-    micButton.disabled = true;
-
-    recognition.onresult = (event) => {
-        const germanText = event.results[0][0].transcript;
-        statusDisplay.textContent = `Du: ${germanText}`;
-        sendToBackend(germanText);
-    };
-
-    recognition.onerror = (event) => {
-        statusDisplay.textContent = `Error: ${event.error}`;
-        micButton.disabled = false;
-    };
-
-    recognition.start();
-}
-
-// --- Función 2: Comunicación con el Backend ---
-async function sendToBackend(inputAlumno) {
-    try {
-        statusDisplay.textContent = "Denken... (Pensando)";
-        
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                alumnoId: ALUMNO_ID,
-                sesionId: currentSessionId,
-                inputAlumno: inputAlumno,
-                tema: temaSelect.value
-            })
-        });
-
-        const data = await response.json();
-        currentSessionId = data.sesionId; 
-
-        // 1. Limpieza y formato de texto
-        const partes = data.iaRespuesta.split('---CORRECCION---');
-        const respuestaTutor = partes[0].trim();
-        statusDisplay.innerHTML = `<div class="tutor-msg">${respuestaTutor}</div>`;
-
-        if (partes[1]) {
-            const corr = JSON.parse(partes[1]);
-            statusDisplay.innerHTML += `<div class="corr-box">💡 <b>Richtig:</b> ${corr.fraseCorregida}</div>`;
-        }
-
-        // 2. Reproducción de Audio (Voz de Gemini)
-        if (data.audioContent) {
-            console.log("🔊 Usando voz nativa de Google");
-            const audio = new Audio("data:audio/mp3;base64," + data.audioContent);
-            audio.play();
-        } else {
-            // Plan B: Si Gemini Audio falla, usamos la voz del navegador limpiando el texto
-            console.warn("⚠️ Falló audio nativo, usando voz del sistema");
-            const utterance = new SpeechSynthesisUtterance(respuestaTutor);
-            utterance.lang = 'de-DE';
-            window.speechSynthesis.speak(utterance);
-        }
-
-        micButton.disabled = false;
-    } catch (error) {
-        statusDisplay.textContent = "Error de conexión.";
-        micButton.disabled = false;
-    }
-}
-// --- Función 3: Salida de Voz (Text-to-Speech) ---
-function hablar(texto) {
+// Función para hablar (Limpia y profesional)
+function speak(text) {
     window.speechSynthesis.cancel();
-
-    // 1. LIMPIEZA: Borramos emojis y símbolos extraños para que no los "lea"
-    const textoLimpio = texto.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
-
-    // 2. Quitamos también asteriscos o etiquetas de formato que Gemini a veces pone
-    const textoFinal = textoLimpio.replace(/\*|_|#/g, '');
-
-    const mensaje = new SpeechSynthesisUtterance(textoFinal);
-    mensaje.lang = 'de-DE';
-
-    // 3. BUSCAR MEJOR VOZ: Intentamos encontrar una voz "Natural" de Google o Microsoft
-    const voces = window.speechSynthesis.getVoices();
-    // Buscamos voces alemanas que suelan ser de alta calidad
-    const mejorVoz = voces.find(v => v.lang === 'de-DE' && (v.name.includes('Google') || v.name.includes('Natural'))) 
-                   || voces.find(v => v.lang === 'de-DE');
-
-    if (mejorVoz) mensaje.voice = mejorVoz;
-
-    mensaje.rate = 0.95; // Velocidad ligeramente pausada para aprendizaje
-    mensaje.pitch = 1.0;
-
-    window.speechSynthesis.speak(mensaje);
+    const cleanText = text.replace(/[*_#]|[\u{1F600}-\u{1F64F}]/gu, ''); // Quita símbolos y emojis
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'de-DE';
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
 }
-// --- Lógica del Botón Finalizar ---
-document.getElementById('end-session-button').onclick = async () => {
-    if (!currentSessionId) {
-        alert("Inicia una sesión primero.");
-        return;
-    }
 
-    const btn = document.getElementById('end-session-button');
-    btn.innerText = "⏳ Evaluando...";
-    btn.disabled = true;
+// Lógica del Micrófono
+micButton.onclick = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SpeechRecognition();
+    rec.lang = 'de-DE';
 
+    rec.onstart = () => {
+        statusDisplay.textContent = "Ich höre zu... 👂";
+        micButton.disabled = true;
+    };
+
+    rec.onresult = async (event) => {
+        const input = event.results[0][0].transcript;
+        statusDisplay.textContent = "Denken... 🧠";
+        
+        try {
+            const r = await fetch(`${BASE_URL}/api/practica/hablar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    alumnoId: ALUMNO_ID,
+                    sesionId: currentSessionId,
+                    inputAlumno: input,
+                    tema: temaSelect.value
+                })
+            });
+            const data = await r.json();
+            currentSessionId = data.sesionId;
+
+            const partes = data.iaRespuesta.split('---CORRECCION---');
+            const respuesta = partes[0].trim();
+            
+            statusDisplay.innerHTML = `<div style="color: #2c3e50; font-weight: bold;">${respuesta}</div>`;
+            if (partes[1]) {
+                const corr = JSON.parse(partes[1]);
+                statusDisplay.innerHTML += `<div style="background: #fff3f3; color:#d9534f; padding: 8px; margin-top:10px; border-radius: 5px; font-size: 0.85em;">💡 <b>Richtig:</b> ${corr.fraseCorregida}</div>`;
+            }
+            
+            speak(respuesta);
+        } catch (err) {
+            statusDisplay.textContent = "Error de conexión ❌";
+        }
+    };
+
+    rec.onend = () => { micButton.disabled = false; };
+    rec.start();
+};
+
+// Botón Finalizar
+endButton.onclick = async () => {
+    if (!currentSessionId) return alert("Inicia una sesión primero");
+    endButton.innerText = "⏳ Evaluando...";
     try {
-        const response = await fetch(`${BASE_URL}/api/practica/finalizar`, {
+        const r = await fetch(`${BASE_URL}/api/practica/finalizar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sesionId: currentSessionId })
         });
-
-        if (response.ok) {
-            const data = await response.json();
-            const ev = data.evaluacion;
-
-            alert(`🏆 RESULTADO B1: ${ev.puntuacion}/100\n\nNivel: ${ev.nivelDetectado}\n\nFeedback: ${ev.feedback}\n\nConsejo: ${ev.consejo}`);
-            location.reload(); 
-        }
-    } catch (error) {
-        alert("Error al evaluar.");
-        btn.innerText = "Finalizar Sesión";
-        btn.disabled = false;
+        const d = await r.json();
+        const ev = d.evaluacion;
+        alert(`🏆 NOTE: ${ev.puntuacion}/100\n\nFEEDBACK: ${ev.feedback}\n\nCONSEJO: ${ev.consejo}`);
+        location.reload();
+    } catch (e) {
+        alert("Error al evaluar");
+        endButton.innerText = "Finalizar";
+        endButton.disabled = false;
     }
 };
 
-// --- Iniciar Aplicación ---
 populateTopics();
-micButton.addEventListener('click', startListening);
-statusDisplay.textContent = "Wähle ein Thema und klicke auf das Mikrofon.";
