@@ -43,64 +43,46 @@ app.get('/', async (req, res) => {
 
 // --- 3. RUTA: HABLAR (EL ALUMNO HABLA CON LA IA) ---
 app.post('/api/practica/hablar', async (req, res) => {
-    const { alumnoId, sesionId, inputAlumno, tema } = req.body;
+     const { alumnoId, sesionId, inputAlumno, tema } = req.body;
     try {
         await conectarDB();
         let sesion = sesionId ? await SesionPractica.findById(sesionId) : new SesionPractica({ alumnoId, tema });
 
-      const promptFinal = `
-    Eres un COACH de alemán experto para ADOLESCENTES (nivel B1).
-    Tu misión es que el alumno practique y se motive.
+        const promptFinal = `Eres un COACH de alemán B1 para jóvenes. Responde SIEMPRE EN ALEMÁN de forma motivadora. Si hay error añade ---CORRECCION--- con JSON al final. Entrada: ${inputAlumno}`;
 
-    REGLAS DE ORO:
-    1. Responde SIEMPRE Y ÚNICAMENTE EN ALEMÁN. Prohibido usar español en la conversación.
-    2. Usa el trato de 'du' (tutear). Sé cercano, como un amigo o un hermano mayor.
-    3. Sé muy motivador. Usa frases como: "Klasse!", "Toll gemacht!", "Das klingt super!".
-    4. Nivel de lenguaje: Alemán B1 claro, natural y juvenil.
-
-    ESTRUCTURA DE TU RESPUESTA:
-    Primero escribe tu respuesta motivadora en alemán.
-    SOLO SI el alumno cometió un error, añade al final:
-    ---CORRECCION--- {"fraseOriginal": "...", "tipoError": "...", "fraseCorregida": "..."}
-
-    Entrada del alumno: "${inputAlumno}"
-`;
-
+        // 1. Generar Texto con Gemini
         const result = await model.generateContent(promptFinal);
         const iaRespuesta = result.response.text();
-
-        // --- 🎙️ CONEXIÓN CON ELEVENLABS ---
-        // Limpiamos el texto de asteriscos y emojis para que la voz no haga ruidos raros
+        
+        // 2. LIMPIEZA: Solo enviamos a voz la parte de conversación (sin el JSON de corrección)
         const textoParaVoz = iaRespuesta.split('---CORRECCION---')[0].replace(/[*_#]/g, '');
-       //Nos aseguramos de que ElevenLabs NO lea la parte de la corrección
-        const partes = iaRespuesta.split('---CORRECCION---');
-       const textoSoloAleman = partes[0].trim().replace(/[*_#]/g, '');
 
-   const responseAudio = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'xi-api-key': process.env.ELEVENLABS_API_KEY
-        },
-        body: JSON.stringify({
-            text: textoParaVoz,
-            model_id: "eleven_multilingual_v2", // Este modelo es el mejor para alemán
-            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-        })
-    });
+        // 3. GENERAR AUDIO NATIVO (Usando el modelo de voz de Google)
+        // En 2026, Gemini permite generar el audio en la misma llamada o mediante un sub-modelo
+        const audioModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const audioResult = await audioModel.generateContent({
+            contents: [{ role: "user", parts: [{ text: `Lee esto con voz natural alemana: ${textoParaVoz}` }] }],
+            generationConfig: {
+                responseMimeType: "audio/mp3", // Formato nativo de Google TTS 2026
+            }
+        });
 
-    if (responseAudio.ok) {
-        console.log("✅ Audio de ElevenLabs generado con éxito");
-        const audioBuffer = await responseAudio.arrayBuffer();
-        audioBase64 = Buffer.from(audioBuffer).toString('base64');
-    } else {
-        const errorDetail = await responseAudio.json();
-        // ESTO TE DIRÁ EL ERROR REAL EN LOS LOGS DE VERCEL:
-        console.error("❌ FALLO ELEVENLABS:", errorDetail.detail.status, errorDetail.detail.message);
+        // Extraemos los bytes del audio y los convertimos a Base64
+        const audioBase64 = audioResult.response.audioData; 
+
+        sesion.interacciones.push({ alumnoInput: inputAlumno, iaRespuesta });
+        await sesion.save();
+
+        res.json({ 
+            sesionId: sesion._id, 
+            iaRespuesta: iaRespuesta, 
+            audioContent: audioBase64 // El frontend ya sabe qué hacer con esto
+        });
+
+    } catch (error) {
+        console.error("Error con voz de Gemini:", error);
+        res.status(500).json({ error: error.message });
     }
-} catch (e) {
-    console.error("❌ Error de red con ElevenLabs:", e.message);
-}
 });
 // --- 4. RUTA: FINALIZAR (CON EVALUACIÓN) ---
 app.post('/api/practica/finalizar', async (req, res) => {
