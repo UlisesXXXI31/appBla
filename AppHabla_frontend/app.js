@@ -30,10 +30,10 @@ function populateTopics() {
     temaSelect.appendChild(g2);
 }
 
-// Función para hablar (Limpia y profesional)
+// Función para hablar (Plan B: Voz del sistema si falla el audio de Gemini)
 function speak(text) {
     window.speechSynthesis.cancel();
-    const cleanText = text.replace(/[*_#]|[\u{1F600}-\u{1F64F}]/gu, ''); // Quita símbolos y emojis
+    const cleanText = text.replace(/[*_#]|[\u{1F600}-\u{1F64F}]/gu, ''); 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'de-DE';
     utterance.rate = 0.9;
@@ -43,6 +43,11 @@ function speak(text) {
 // Lógica del Micrófono
 micButton.onclick = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        statusDisplay.textContent = "Navegador no compatible con reconocimiento de voz.";
+        return;
+    }
+    
     const rec = new SpeechRecognition();
     rec.lang = 'de-DE';
 
@@ -66,20 +71,39 @@ micButton.onclick = () => {
                     tema: temaSelect.value
                 })
             });
+            
             const data = await r.json();
             currentSessionId = data.sesionId;
 
             const partes = data.iaRespuesta.split('---CORRECCION---');
             const respuesta = partes[0].trim();
             
+            // Actualizar Interfaz
             statusDisplay.innerHTML = `<div style="color: #2c3e50; font-weight: bold;">${respuesta}</div>`;
             if (partes[1]) {
-                const corr = JSON.parse(partes[1]);
-                statusDisplay.innerHTML += `<div style="background: #fff3f3; color:#d9534f; padding: 8px; margin-top:10px; border-radius: 5px; font-size: 0.85em;">💡 <b>Richtig:</b> ${corr.fraseCorregida}</div>`;
+                try {
+                    const corr = JSON.parse(partes[1]);
+                    statusDisplay.innerHTML += `<div style="background: #fff3f3; color:#d9534f; padding: 8px; margin-top:10px; border-radius: 5px; font-size: 0.85em;">💡 <b>Richtig:</b> ${corr.fraseCorregida}</div>`;
+                } catch (e) {
+                    console.error("Error al parsear corrección:", e);
+                }
             }
             
-            speak(respuesta);
+            // --- 🎙️ REPRODUCCIÓN DE AUDIO ---
+            if (data.audioContent) {
+                console.log("🔊 Reproduciendo audio nativo de Gemini...");
+                const audio = new Audio("data:audio/mp3;base64," + data.audioContent);
+                audio.play().catch(err => {
+                    console.warn("Error al reproducir audio nativo, usando Plan B:", err);
+                    speak(respuesta);
+                });
+            } else {
+                console.warn("No llegó audioContent del servidor, usando Plan B.");
+                speak(respuesta);
+            }
+
         } catch (err) {
+            console.error(err);
             statusDisplay.textContent = "Error de conexión ❌";
         }
     };
@@ -92,6 +116,8 @@ micButton.onclick = () => {
 endButton.onclick = async () => {
     if (!currentSessionId) return alert("Inicia una sesión primero");
     endButton.innerText = "⏳ Evaluando...";
+    endButton.disabled = true;
+    
     try {
         const r = await fetch(`${BASE_URL}/api/practica/finalizar`, {
             method: 'POST',
@@ -104,7 +130,7 @@ endButton.onclick = async () => {
         location.reload();
     } catch (e) {
         alert("Error al evaluar");
-        endButton.innerText = "Finalizar";
+        endButton.innerText = "Finalizar Sesión";
         endButton.disabled = false;
     }
 };
