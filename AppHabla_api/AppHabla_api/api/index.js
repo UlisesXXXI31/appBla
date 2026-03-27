@@ -17,6 +17,19 @@ const conectarDB = async () => {
         console.error('Error MongoDB:', err.message);
     }
 };
+// Ruta de prueba para saber si el servidor responde
+app.get('/', async (req, res) => {
+    try {
+        await conectarDB(); // Intenta conectar a la base de datos
+        res.json({ 
+            status: "Servidor encendido 🚀", 
+            mensaje: "El Tutor de Alemán está listo para recibir mensajes.",
+            db: mongoose.connection.readyState === 1 ? "Conectada ✅" : "Error de conexión ❌"
+        });
+    } catch (error) {
+        res.json({ status: "Error", error: error.message });
+    }
+});
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
