@@ -71,8 +71,7 @@ function startListening() {
 async function sendToBackend(inputAlumno) {
     try {
         statusDisplay.textContent = "Denken... (Pensando)";
-        const temaSeleccionado = temaSelect.value || "General";
-
+        
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -80,47 +79,34 @@ async function sendToBackend(inputAlumno) {
                 alumnoId: ALUMNO_ID,
                 sesionId: currentSessionId,
                 inputAlumno: inputAlumno,
-                tema: temaSeleccionado
+                tema: temaSelect.value
             })
         });
 
         const data = await response.json();
-        console.log("Datos recibidos de la API:", data); 
-        
         currentSessionId = data.sesionId; 
 
-        // --- 1. SEPARAR RESPUESTA DE CORRECCIÓN ---
+        // 1. Limpieza y formato de texto
         const partes = data.iaRespuesta.split('---CORRECCION---');
-        const respuestaTutor = partes[0].trim(); // Lo que el tutor dice (Alemán)
-        let htmlFinal = `<div class="tutor-msg">${respuestaTutor}</div>`;
+        const respuestaTutor = partes[0].trim();
+        statusDisplay.innerHTML = `<div class="tutor-msg">${respuestaTutor}</div>`;
 
-        // Si hay una corrección técnica, la preparamos para el diseño
         if (partes[1]) {
-            try {
-                const correccion = JSON.parse(partes[1].trim());
-                htmlFinal += `
-                    <div style="background: #fff3f3; color: #d9534f; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.85em; border-left: 4px solid #d9534f;">
-                        💡 <b>Korrektur:</b> <br>
-                        <small>Original: "${correccion.fraseOriginal}"</small><br>
-                        <b>Richtig: "${correccion.fraseCorregida}"</b>
-                    </div>
-                `;
-            } catch (e) {
-                console.error("Error al leer el JSON de corrección", e);
-            }
+            const corr = JSON.parse(partes[1]);
+            statusDisplay.innerHTML += `<div class="corr-box">💡 <b>Richtig:</b> ${corr.fraseCorregida}</div>`;
         }
 
-        // Mostramos el texto formateado en la pantalla
-        statusDisplay.innerHTML = htmlFinal;
-
-        // --- 2. 🔊 REPRODUCIR EL AUDIO HUMANO (ELEVENLABS) ---
+        // 2. Reproducción de Audio (Voz de Gemini)
         if (data.audioContent) {
+            console.log("🔊 Usando voz nativa de Google");
             const audio = new Audio("data:audio/mp3;base64," + data.audioContent);
-            audio.play().catch(e => console.error("Error al reproducir audio:", e));
-        } 
-        else {
-            console.warn("No llegó audio de ElevenLabs, usando voz del sistema.");
-            hablar(respuestaTutor); // Solo hablamos la parte en alemán
+            audio.play();
+        } else {
+            // Plan B: Si Gemini Audio falla, usamos la voz del navegador limpiando el texto
+            console.warn("⚠️ Falló audio nativo, usando voz del sistema");
+            const utterance = new SpeechSynthesisUtterance(respuestaTutor);
+            utterance.lang = 'de-DE';
+            window.speechSynthesis.speak(utterance);
         }
 
         micButton.disabled = false;
