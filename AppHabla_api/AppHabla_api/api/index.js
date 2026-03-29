@@ -2,74 +2,66 @@ import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import SesionPractica from '../models/SesionPractica.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// --- CONEXIÓN A MONGODB ---
 const conectarDB = async () => {
     if (mongoose.connection.readyState === 1) return;
-    await mongoose.connect(process.env.MONGODB_URI);
+    try {
+        await mongoose.connect(process.env.MONGODB_URI);
+        console.log('✅ MongoDB Conectado');
+    } catch (err) {
+        console.error('❌ Error DB:', err.message);
+    }
 };
 
-// Inicializamos clientes usando TUS variables de la captura
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-// Ajustado a 'ELEVENLABS_API' como sale en tu captura
-const elevenlabs = new ElevenLabsClient({ 
-    apiKey: process.env.ELEVENLABS_API 
+// --- RUTA 1: CONECTAR (Envía el ID del Agente al Frontend) ---
+app.get('/api/practica/conectar', (req, res) => {
+    // Simplemente enviamos el ID que tienes en tus variables de Vercel
+    res.json({ 
+        agentId: process.env.ELEVENLABS_AGENT_ID 
+    });
 });
 
-app.post('/api/practica/hablar', async (req, res) => {
-    const { alumnoId, sesionId, inputAlumno, tema } = req.body;
+// --- RUTA 2: WEBHOOK (ElevenLabs enviará aquí el resumen al terminar) ---
+// Esto permite que sigas guardando las conversaciones en tu MongoDB
+app.post('/api/webhook/elevenlabs', async (req, res) => {
+    const data = req.body;
+    
     try {
         await conectarDB();
-        let sesion = sesionId ? await SesionPractica.findById(sesionId) : new SesionPractica({ alumnoId, tema });
-
-        // 1. Generar texto con Gemini
-        const promptFinal = `Eres un COACH de alemán B1 para jóvenes. Responde 100% EN ALEMÁN de forma motivadora. Usa 'du'. No uses emojis ni asteriscos en la conversación. Alumno dice: ${inputAlumno}`;
-        const result = await model.generateContent(promptFinal);
-        const iaRespuesta = result.response.text();
-
-        // 2. Generar Audio con ElevenLabs (SDK)
-        let audioBase64 = null;
-        try {
-            const audioStream = await elevenlabs.textToSpeech.convert(
-                process.env.ELEVENLABS_VOICE_ID, // Usa tu variable de Vercel
-                {
-                    text: iaRespuesta,
-                    model_id: "eleven_multilingual_v2",
-                    output_format: "mp3_44100_128",
-                }
-            );
-
-            // Convertir stream a Base64 para enviarlo al móvil
-            const chunks = [];
-            for await (const chunk of audioStream) {
-                chunks.push(chunk);
+        
+        // ElevenLabs envía un objeto con la transcripción y el análisis
+        const nuevaSesion = new SesionPractica({
+            alumnoId: "alumno_pro_2026", // O el ID que identifiques
+            tema: "Examen B1 ConvAI",
+            estado: 'completada',
+            interacciones: data.transcript?.map(t => ({
+                alumnoInput: t.user_message,
+                iaRespuesta: t.agent_message
+            })) || [],
+            evaluacionFinal: {
+                feedback: data.analysis?.transcript_summary || "Sesión terminada",
+                puntuacion: 0 // ElevenLabs puede calcular esto si lo configuras en su dashboard
             }
-            const audioBuffer = Buffer.concat(chunks);
-            audioBase64 = audioBuffer.toString('base64');
-        } catch (e) {
-            console.error("Error en ElevenLabs:", e.message);
-        }
-
-        sesion.interacciones.push({ alumnoInput: inputAlumno, iaRespuesta });
-        await sesion.save();
-
-        res.json({ 
-            sesionId: sesion._id, 
-            iaRespuesta: iaRespuesta, 
-            audioContent: audioBase64 
         });
 
+        await nuevaSesion.save();
+        res.status(200).send("Sesión guardada");
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error("Error guardando webhook:", error);
+        res.status(500).send("Error");
     }
+});
+
+// --- RUTA 3: STATUS ---
+app.get('/', async (req, res) => {
+    await conectarDB();
+    res.json({ status: "API ConvAI Online 🚀" });
 });
 
 export default app;
