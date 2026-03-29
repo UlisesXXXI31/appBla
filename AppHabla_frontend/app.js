@@ -1,4 +1,3 @@
-import { Conversation } from 'https://esm.run/@elevenlabs/convai-sdk';
 import { TEMAS_ALEMAN, TEMAS_GOETHEB1 } from './temas.js';
 
 const BASE_URL = 'https://app-bla.vercel.app'; 
@@ -56,8 +55,8 @@ async function stopSession() {
 // 3. Lógica del botón de Hablar (Conversación Real)
 micButton.onclick = async () => {
     if (conversation) {
-        await stopSession();
-        statusDisplay.textContent = "Sesión terminada.";
+        await conversation.endSession();
+        conversation = null;
         return;
     }
 
