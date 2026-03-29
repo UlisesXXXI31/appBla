@@ -54,21 +54,27 @@ async function stopSession() {
 
 // 3. Lógica del botón de Hablar (Conversación Real)
 micButton.onclick = async () => {
-    if (conversation) {
-        await conversation.endSession();
-        conversation = null;
+    // 1. Comprobación crítica: ¿Se ha cargado la librería?
+    if (typeof ElevenLabsConvAI === 'undefined') {
+        console.error("La librería de ElevenLabs no se ha cargado.");
+        statusDisplay.textContent = "Error: El navegador bloqueó la conexión de voz. Por favor, desactiva el 'escudo' o 'prevención de seguimiento' y refresca.";
         return;
     }
 
-    if (!temaSelect.value) return alert("¡Elige un tema primero!");
+    if (conversation) {
+        await conversation.endSession();
+        conversation = null;
+        micButton.innerHTML = "🎤 Hablar";
+        return;
+    }
 
     try {
-        statusDisplay.textContent = "Conectando con el Coach...";
+        statusDisplay.textContent = "Conectando...";
         
         const response = await fetch(`${BASE_URL}/api/practica/conectar`);
         const { agentId } = await response.json();
 
-        // ElevenLabs maneja el micrófono automáticamente
+        // 2. Iniciamos usando el objeto global verificado
         conversation = await ElevenLabsConvAI.Conversation.startSession({
             agentId: agentId,
             onConnect: () => {
@@ -79,13 +85,14 @@ micButton.onclick = async () => {
             onDisconnect: () => {
                 stopSession();
             },
-            onError: (err) => {
-                console.error("Error de ElevenLabs:", err);
-                statusDisplay.textContent = "Error de conexión.";
+            onError: (error) => {
+                console.error("Error de ElevenLabs:", error);
+                statusDisplay.textContent = "Error de audio.";
             }
         });
     } catch (error) {
         console.error("Error al iniciar:", error);
+        statusDisplay.textContent = "No se pudo conectar.";
     }
 };
 
