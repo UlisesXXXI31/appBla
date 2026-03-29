@@ -1,3 +1,4 @@
+import { Conversation } from 'https://esm.sh/@elevenlabs/convai-sdk';
 import { TEMAS_ALEMAN, TEMAS_GOETHEB1 } from './temas.js';
 
 const BASE_URL = 'https://app-bla.vercel.app'; 
@@ -69,7 +70,7 @@ micButton.onclick = async () => {
         const { agentId } = await response.json();
 
         // ElevenLabs maneja el micrófono automáticamente
-        conversation = await ElevenLabsConvAI.Conversation.startSession({
+        conversation = await Conversation.startSession({
             agentId: agentId,
             onConnect: () => {
                 micButton.innerHTML = "🛑 Detener";
