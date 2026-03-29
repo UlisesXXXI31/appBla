@@ -69,25 +69,23 @@ micButton.onclick = async () => {
         const { agentId } = await response.json();
 
         // ElevenLabs maneja el micrófono automáticamente
-        conversation = await Conversation.startSession({
+        conversation = await ElevenLabsConvAI.Conversation.startSession({
             agentId: agentId,
             onConnect: () => {
                 micButton.innerHTML = "🛑 Detener";
-                statusDisplay.textContent = "¡Conectado! Habla ahora en alemán...";
+                statusDisplay.textContent = "¡Conectado! Habla ahora...";
                 startTimer();
             },
             onDisconnect: () => {
                 stopSession();
             },
             onError: (err) => {
-                console.error(err);
+                console.error("Error de ElevenLabs:", err);
                 statusDisplay.textContent = "Error de conexión.";
             }
         });
- } catch (error) {
-        // Esto nos dirá en la consola si es culpa del micro, del ID o de la librería
-        console.error("Error detallado:", error); 
-        statusDisplay.textContent = "Error al iniciar: " + error.message;
+    } catch (error) {
+        console.error("Error al iniciar:", error);
     }
 };
 
