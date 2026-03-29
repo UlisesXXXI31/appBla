@@ -1,3 +1,4 @@
+import { Conversation } from 'https://esm.run/@elevenlabs/client';
 import { TEMAS_ALEMAN, TEMAS_GOETHEB1 } from './temas.js';
 
 const BASE_URL = 'https://app-bla.vercel.app'; 
@@ -54,29 +55,25 @@ async function stopSession() {
 
 // 3. Lógica del botón de Hablar (Conversación Real)
 micButton.onclick = async () => {
-    // 1. Comprobación crítica: ¿Se ha cargado la librería?
-    if (typeof ElevenLabsConvAI === 'undefined') {
-        console.error("La librería de ElevenLabs no se ha cargado.");
-        statusDisplay.textContent = "Error: El navegador bloqueó la conexión de voz. Por favor, desactiva el 'escudo' o 'prevención de seguimiento' y refresca.";
+    if (conversation) {
+        await stopSession();
         return;
     }
 
-    if (conversation) {
-        await conversation.endSession();
-        conversation = null;
-        micButton.innerHTML = "🎤 Hablar";
-        return;
-    }
+    if (!temaSelect.value) return alert("Wähle zuerst ein Thema!");
 
     try {
-        statusDisplay.textContent = "Conectando...";
+        statusDisplay.textContent = "Obteniendo permiso de voz...";
         
+        // 1. Pedimos el token de seguridad a NUESTRO servidor
         const response = await fetch(`${BASE_URL}/api/practica/conectar`);
-        const { agentId } = await response.json();
+        const { token } = await response.json();
 
-        // 2. Iniciamos usando el objeto global verificado
-        conversation = await ElevenLabsConvAI.Conversation.startSession({
-            agentId: agentId,
+        statusDisplay.textContent = "Conectando con el Coach...";
+
+        // 2. Iniciamos la sesión usando el TOKEN (Método oficial Private Agent)
+        conversation = await Conversation.startSession({
+            conversationToken: token, // <--- Aquí usamos el token seguro
             onConnect: () => {
                 micButton.innerHTML = "🛑 Detener";
                 statusDisplay.textContent = "¡Conectado! Habla ahora...";
@@ -84,14 +81,16 @@ micButton.onclick = async () => {
             },
             onDisconnect: () => {
                 stopSession();
+                statusDisplay.textContent = "Sesión terminada.";
             },
             onError: (error) => {
-                console.error("Error de ElevenLabs:", error);
-                statusDisplay.textContent = "Error de audio.";
+                console.error("Error oficial:", error);
+                statusDisplay.textContent = "Error: " + error.message;
             }
         });
+
     } catch (error) {
-        console.error("Error al iniciar:", error);
+        console.error("Fallo de inicio:", error);
         statusDisplay.textContent = "No se pudo conectar.";
     }
 };
