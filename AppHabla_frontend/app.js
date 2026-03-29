@@ -84,8 +84,10 @@ micButton.onclick = async () => {
                 statusDisplay.textContent = "Error de conexión.";
             }
         });
-    } catch (error) {
-        statusDisplay.textContent = "Error al iniciar.";
+ } catch (error) {
+        // Esto nos dirá en la consola si es culpa del micro, del ID o de la librería
+        console.error("Error detallado:", error); 
+        statusDisplay.textContent = "Error al iniciar: " + error.message;
     }
 };
 
