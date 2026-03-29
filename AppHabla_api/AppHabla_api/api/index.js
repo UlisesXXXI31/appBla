@@ -20,11 +20,29 @@ const conectarDB = async () => {
 };
 
 // --- RUTA 1: CONECTAR (Envía el ID del Agente al Frontend) ---
-app.get('/api/practica/conectar', (req, res) => {
-    // Simplemente enviamos el ID que tienes en tus variables de Vercel
-    res.json({ 
-        agentId: process.env.ELEVENLABS_AGENT_ID 
-    });
+// Endpoint para obtener el token de seguridad WebRTC (según la documentación oficial)
+app.get('/api/practica/conectar', async (req, res) => {
+  try {
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${process.env.ELEVENLABS_AGENT_ID}`,
+      {
+        method: 'GET',
+        headers: {
+          'xi-api-key': process.env.ELEVENLABS_API, // Tu Master API Key
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return res.status(500).json({ error: 'No se pudo obtener el token de ElevenLabs' });
+    }
+
+    const data = await response.json();
+    // Enviamos el token al frontend
+    res.json({ token: data.token });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // --- RUTA 2: WEBHOOK (ElevenLabs enviará aquí el resumen al terminar) ---
