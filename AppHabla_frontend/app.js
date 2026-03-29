@@ -1,4 +1,4 @@
-import { Conversation } from 'https://esm.sh/@elevenlabs/convai-sdk';
+import { Conversation } from 'https://cdn.jsdelivr.net/npm/@elevenlabs/convai-sdk@0.1.0/+esm';
 import { TEMAS_ALEMAN, TEMAS_GOETHEB1 } from './temas.js';
 
 const BASE_URL = 'https://app-bla.vercel.app'; 
